@@ -1,9 +1,9 @@
-export interface AgentRegistration {
-    agent_id: string;
+export interface Agent {
+    id: string;
     hostname: string;
     heartbeat_interval: number;
     discovery_interval: number;
-    started_at: number;
+    on_host: boolean;
 }
 
 export interface Container {
@@ -17,7 +17,7 @@ export interface Container {
 }
 
 export interface ServiceContainer extends Container {
-    type: 'compose' | 'swarm';
+    type: 'compose' | 'swarm' | string;
 }
 
 export type ServiceMap = Record<string, ServiceContainer[]>;
@@ -25,7 +25,7 @@ export type ServiceMap = Record<string, ServiceContainer[]>;
 export interface StackInfo {
     name: string;
     type: string;
-    containers: ContainerInfo[];
+    containers: Container[];
 }
 
 export interface AgentState {

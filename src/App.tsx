@@ -1,17 +1,41 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getServices, getOrphans, getUptime, getHealth, getLogs } from './api';
+import {getServices, getOrphans, getUptime, getHealth, getLogs, getAgents} from './api';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { CircleQuestionMark} from "lucide-react";
+import type {ServiceContainer} from "@/types.ts";
+import {Switch} from "@/components/ui/switch.tsx";
+import {Separator} from "@/components/ui/separator.tsx";
+
+function typeToColorClass(type: string) {
+    if (type === 'compose') return 'bg-blue-500';
+    if (type === 'swarm') return 'bg-green-500';
+    return 'bg-gray-500';
+}
+
+function statusToColorClass(status: string) {
+    if (status === 'running') return 'text-green-500';
+    if (status === 'exited') return 'text-red-500';
+    if (status === 'paused') return 'text-yellow-500';
+    if (status === 'restarting') return 'text-orange-500';
+    if (status === 'created') return 'text-blue-500';
+    if (status === 'dead') return 'text-black';
+    if (status === 'removing') return 'text-purple-500';
+    if (status === 'unknown') return 'text-gray-700';
+    if (status === 'unhealthy') return 'text-pink-500';
+    return 'text-gray-500';
+}
 
 function App() {
     const [logLimit, setLogLimit] = useState(50);
+    const [loggingMode, setLoggingMode] = useState(false)
 
     const { data: health } = useQuery({
         queryKey: ['health'],
@@ -38,8 +62,14 @@ function App() {
     });
 
     const { data: logs, isLoading: isLoadingLogs } = useQuery({
-        queryKey: ['logs', logLimit],
-        queryFn: () => getLogs(logLimit),
+        queryKey: ['logs', logLimit, loggingMode ? 'warning' : 'error'],
+        queryFn: () => getLogs(logLimit, loggingMode ? 'warning' : 'error'),
+        refetchInterval: 5000
+    });
+
+    const { data: agentsData, isLoading: isLoadingAgents } = useQuery({
+        queryKey: ['agents'],
+        queryFn: getAgents,
         refetchInterval: 5000
     });
 
@@ -50,150 +80,295 @@ function App() {
         hours: (Number(seconds) / 3600).toFixed(2)
     })) : [];
 
+
     return (
-        <div className="container mx-auto p-6 space-y-8">
-            <div className="flex items-center justify-center mb-8 relative">
-                <h1 className="text-4xl font-bold text-center">Clogs Dashboard</h1>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex gap-2">
-                     <Badge variant={health ? "default" : "destructive"}>
-                        API: {health ? "Online" : "Offline"}
-                    </Badge>
-                    <Badge variant="outline" className="animate-pulse text-green-600 border-green-600">
-                        Live Updates
-                    </Badge>
+        <div className="container mx-auto p-6">
+            <div className="space-y-8 min-h-screen">
+                <div className="flex items-center justify-center mb-8 relative">
+                    <h1 className="text-4xl font-bold text-center">Clogs Dashboard</h1>
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex gap-2">
+                        {!health ? <Badge variant="destructive">
+                            Disconnected
+                        </Badge>:<></>}
+                    </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Services Section */}
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Services</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingServices ? <Skeleton className="h-20 w-full" /> : (
-                            <Accordion type="single" collapsible className="w-full">
-                                {Object.entries(services || {}).map(([serviceName, containers]) => (
-                                    <AccordionItem key={serviceName} value={serviceName}>
-                                        <AccordionTrigger>{serviceName} ({containers.length} containers)</AccordionTrigger>
-                                        <AccordionContent>
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Name</TableHead>
-                                                        <TableHead>Status</TableHead>
-                                                        <TableHead>Agent ID</TableHead>
-                                                        <TableHead>Image</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {containers.map((container) => (
-                                                        <TableRow key={container.id || container.name}>
-                                                            <TableCell>{container.name}</TableCell>
-                                                            <TableCell>{container.status}</TableCell>
-                                                            <TableCell className="font-mono text-xs">{container.agent_id.substring(0, 8)}</TableCell>
-                                                            <TableCell className="font-mono text-xs">{container.image}</TableCell>
+                <div className="grid grid-cols-1 gap-6">
+                    {/* Services Section */}
+                    <div className="">
+
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-2xl font-semibold">Services </h2>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <CircleQuestionMark/>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>
+                                            Services are groups of containers managed together, such as those defined in Docker Compose or Docker Swarm stacks.
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            <div>
+                                {
+                                    services && Object.keys(services).length === 0 ? <span className="text-sm text-muted-foreground">No services found</span> : null
+                                }
+                                {
+                                    <div className="flex items-center gap-4">
+                                        { Array.from(new Set((services ? Object.values(services).flat() : []).map(c => (c as ServiceContainer).type))).map((type) => {
+                                            const colorClass = typeToColorClass(type);
+                                            return (
+                                                <div key={type} className="flex items-center gap-2">
+                                                    <span className={`w-4 h-4 ${colorClass} rounded-sm`}></span>
+                                                    <span className="capitalize">{type}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div className="outline-1 rounded-xs px-2">
+                            {isLoadingServices ? <Skeleton className="h-20 w-full" /> : (
+                                <Accordion type="single" collapsible className="w-full">
+                                    {Object.entries(services || {}).map(([serviceName, containers]) => (
+                                        <AccordionItem key={serviceName} value={serviceName}>
+                                            <AccordionTrigger>
+                                                <div className="w-full flex justify-between items-center">
+                                                                                            <span className="flex items-center gap-2">
+                                                <span className={`w-4 h-4 ${typeToColorClass(containers[0].type)} rounded-sm`}></span>
+                                                                                                {serviceName} ({containers.length} containers)
+                                            </span>
+                                                    <div>
+                                                        {
+                                                            // If any containers are either 'unhealthy' or 'exited' or 'dead' or 'unknown', show a red badge with the count of such containers
+                                                            (() => {
+                                                                const problemContainers = containers.filter(c => ['unhealthy', 'exited', 'dead', 'unknown'].includes(c.status));
+                                                                if (problemContainers.length > 0) {
+                                                                    return <Badge variant="destructive">{problemContainers.length} issue{problemContainers.length > 1 ? 's' : ''}</Badge>;
+                                                                }
+                                                                return <Badge className={"bg-green-400"}>All Healthy</Badge>
+                                                            })()
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Name</TableHead>
+                                                            <TableHead>Container ID</TableHead>
+                                                            <TableHead>Agent ID</TableHead>
+                                                            <TableHead>Image</TableHead>
+                                                            <TableHead>Status</TableHead>
                                                         </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                        )}
-                    </CardContent>
-                </Card>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {containers.map((container) => (
+                                                            <TableRow key={container.id || container.name}>
+                                                                <TableCell>{container.name}</TableCell>
+                                                                <TableCell className="font-mono text-xs">{container.id ? container.id.substring(0, 8) : 'N/A'}</TableCell>
+                                                                <TableCell className="font-mono text-xs">{container.agent_id.substring(0, 8)}</TableCell>
+                                                                <TableCell className="font-mono text-xs">{container.image}</TableCell>
+                                                                <TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                </Accordion>
+                            )}
+                        </div>
+                    </div>
+                    {/* Orphans Section */}
+                    <div className="">
 
-                {/* Orphans Section */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Orphans</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoadingOrphans ? <Skeleton className="h-20 w-full" /> : (
-                            <ScrollArea className="h-[300px]">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-2xl font-semibold">Orphans</h2>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <CircleQuestionMark/>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>
+                                            Services are groups of containers managed together, such as those defined in Docker Compose or Docker Swarm stacks.
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            <div>
+                                {
+                                    orphans && orphans.length === 0 ? <span className="text-sm text-muted-foreground">No orphan containers found</span> : null
+                                }
+                                {
+                                    // If any orphans are either 'unhealthy' or 'exited' or 'dead' or 'unknown', show a red badge with the count of such containers
+                                    (() => {
+                                        const problemContainers = (orphans || []).filter(c => ['unhealthy', 'exited', 'dead', 'unknown'].includes(c.status));
+                                        if (problemContainers.length > 0) {
+                                            return <Badge variant="destructive">{problemContainers.length} issue{problemContainers.length > 1 ? 's' : ''}</Badge>;
+                                        }
+                                        if ((orphans || []).length > 0) {
+                                            return <Badge className={"bg-green-400"}>All Healthy</Badge>
+                                        }
+                                        return null;
+                                    })()
+                                }
+                            </div>
+                        </div>
+                        <div className="outline-1 rounded-xs px-2">
+                            {isLoadingOrphans ? <Skeleton className="h-20 w-full" /> : (
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Name</TableHead>
+                                            <TableHead>Container ID</TableHead>
+                                            <TableHead>Agent ID</TableHead>
+                                            <TableHead>Image</TableHead>
                                             <TableHead>Status</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {orphans?.map((container) => (
+                                        {(orphans || []).map((container) => (
                                             <TableRow key={container.id || container.name}>
                                                 <TableCell>{container.name}</TableCell>
-                                                <TableCell>{container.status}</TableCell>
+                                                <TableCell className="font-mono text-xs">{container.id ? container.id.substring(0, 8) : 'N/A'}</TableCell>
+                                                <TableCell className="font-mono text-xs">{container.agent_id.substring(0, 8)}</TableCell>
+                                                <TableCell className="font-mono text-xs">{container.image}</TableCell>
+                                                <TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
+                    </div>
+                    {/* Agents Section*/}
+                    <div className="">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-2xl font-semibold">Agents</h2>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <CircleQuestionMark/>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>
+                                            Agents are instances of Clogs running on different hosts, responsible for monitoring and reporting container statuses.
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                            <div>
+                                {
+                                    agentsData && Object.keys(agentsData).length === 0 ? <span className="text-sm text-muted-foreground">No agents found</span> : null
+                                }
+                            </div>
+                        </div>
+                        <div className="outline-1 rounded-xs px-2">
+                            {isLoadingAgents ? <Skeleton className="h-20 w-full" /> : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Agent ID</TableHead>
+                                            <TableHead>Hostname</TableHead>
+                                            <TableHead>Heartbeat Interval (s)</TableHead>
+                                            <TableHead>Discovery Interval (s)</TableHead>
+                                            <TableHead>On Host</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {
+                                            agentsData && Object.values(agentsData).map((agent) => {
+                                                return (
+                                                    <TableRow key={agent.id}>
+                                                        <TableCell className="font-mono text-xs">{agent.id}</TableCell>
+                                                        <TableCell>{agent.hostname}</TableCell>
+                                                        <TableCell>{agent.heartbeat_interval}</TableCell>
+                                                        <TableCell>{agent.discovery_interval}</TableCell>
+                                                        <TableCell>{agent.on_host ? "true": "false"}</TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
+                                        }
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Logs Section */}
+                <div>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-2xl font-semibold">{loggingMode ? "Warning/Error Logs" : "Error Logs"}</h2>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <CircleQuestionMark/>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>
+                                        View recent container errors. Toggle to include warnings as well.
+                                        Note: Extraction of log levels depends on container log formats and may not be accurate for all containers.
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                                <Switch checked={loggingMode} onCheckedChange={(checked) => setLoggingMode(checked)} />
+                                <span>Include Warnings</span>
+                            </div>
+                            <Separator orientation="vertical"/>
+                            <div className="flex items-center gap-2">
+                                <span>Log Entries:</span>
+                                <Button variant="outline" size="sm" onClick={() => setLogLimit(50)} className={logLimit === 50 ? 'bg-gray-200' : ''}>50</Button>
+                                <Button variant="outline" size="sm" onClick={() => setLogLimit(100)} className={logLimit === 100 ? 'bg-gray-200' : ''}>100</Button>
+                                <Button variant="outline" size="sm" onClick={() => setLogLimit(200)} className={logLimit === 200 ? 'bg-gray-200' : ''}>200</Button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="outline-1 rounded-xs px-2">
+                        {isLoadingLogs ? <Skeleton className="h-20 w-full" /> : (
+                            <ScrollArea>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Timestamp</TableHead>
+                                            <TableHead>Container ID</TableHead>
+                                            <TableHead>Level</TableHead>
+                                            <TableHead>Message</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(logs || []).map((log) => (
+                                            <TableRow key={log.id || `${log.container_id}-${log.timestamp}`}>
+                                                <TableCell>{new Date(log.timestamp * 1000).toLocaleString()}</TableCell>
+                                                <TableCell className="font-mono text-xs">{log.container_id.substring(0, 8)}</TableCell>
+                                                <TableCell>{log.level}</TableCell>
+                                                <TableCell>{log.message}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
                             </ScrollArea>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                 {/* Uptime Section */}
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Uptime (Hours)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                         {isLoadingUptime ? <Skeleton className="h-[300px] w-full" /> : (
-                            <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={uptimeData} layout="vertical" margin={{ left: 20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" />
-                                        <YAxis dataKey="name" type="category" width={100} />
-                                        <Tooltip content={({ active, payload }) => {
-                                            if (active && payload && payload.length) {
-                                                return (
-                                                    <div className="bg-background border rounded p-2 shadow-md">
-                                                        <p className="font-bold">{payload[0].payload.fullName}</p>
-                                                        <p>{payload[0].value} hours</p>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        }} />
-                                        <Bar dataKey="hours" fill="#8884d8" radius={[0, 4, 4, 0]}>
-                                            {uptimeData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#8884d8' : '#82ca9d'} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                         )}
-                    </CardContent>
-                </Card>
+
             </div>
-
-            {/* Logs Section */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Logs (Last {logLimit})</CardTitle>
-                    <Button variant="outline" onClick={() => setLogLimit(prev => prev + 50)}>Load More</Button>
-                </CardHeader>
-                <CardContent>
-                    {isLoadingLogs ? <Skeleton className="h-[400px] w-full" /> : (
-                        <ScrollArea className="h-[400px] rounded-md border p-4 bg-muted/50">
-                            <div className="space-y-2">
-                                {logs?.map((log, i) => (
-                                    <div key={i} className="flex gap-4 text-sm font-mono border-b border-border/50 pb-1 last:border-0">
-                                        <span className="text-muted-foreground min-w-[160px]">{new Date(log.timestamp * 1000).toLocaleString()}</span>
-                                        <span className="text-blue-600 dark:text-blue-400 min-w-[80px]">[{log.level}]</span>
-                                        <span className="text-green-600 dark:text-green-400 min-w-[80px]">[{log.container_id.substring(0, 8)}]</span>
-                                        <span className="break-all">{log.message}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    )}
-                </CardContent>
-            </Card>
+            {/* Footer */}
+            <Separator orientation="horizontal"/>
+            <div className="text-center text-sm text-muted-foreground pt-6">
+                <p>Clogs Web &copy; 2025. Built with ❤️ in 🇩🇪 🇪🇺.</p>
+            </div>
         </div>
     );
 }

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Container, ServiceMap, Log } from './types';
+import type {Container, ServiceMap, Log, Agent} from './types';
 
 const API_BASE_URL = '/api'; // Assuming proxy or same origin
 
@@ -22,8 +22,8 @@ export const getServices = async () => {
     return response.data;
 };
 
-export const getLogs = async (limit: number = 100, containerId?: string) => {
-    const params = { limit, container_id: containerId };
+export const getLogs = async (limit: number = 100, level?: string, containerId?: string) => {
+    const params = { limit, container_id: containerId, level };
     const response = await apiClient.get<Log[]>('/web/logs', { params });
     return response.data;
 };
@@ -32,3 +32,8 @@ export const getUptime = async () => {
     const response = await apiClient.get('/processors/uptime');
     return response.data;
 };
+
+export const getAgents = async () => {
+    const response = await apiClient.get<{[key:string]: Agent }>('/web/agents');
+    return response.data;
+}
