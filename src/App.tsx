@@ -17,7 +17,7 @@ import {
     SignalMedium,
     SignalZero
 } from "lucide-react";
-import type {Container, ServiceContainer} from "@/types.ts";
+import type {Container, ServiceContainer, ActiveAgent, Agent} from "@/types.ts";
 import {Switch} from "@/components/ui/switch.tsx";
 import {Separator} from "@/components/ui/separator.tsx";
 import {
@@ -49,18 +49,17 @@ function statusToColorClass(status: string) {
 }
 
 function aliveToColorClass(alive: boolean) {
-    console.log('alive', alive);
     return alive ? '': 'bg-black/[0.05]';
 }
 
-export function ContainerEntry({container}: {container: Container}) {
-    const { data: activeAgents } = useQuery({
-        queryKey: ['activeAgents'],
-        queryFn: getActiveAgents,
+export function ContainerEntry({container, activeAgents}: {container: Container, activeAgents?: ActiveAgent}) {
+    const [logLimit, setLogLimit] = useState(50);
+    const { data: logs, isLoading: isLoadingLogs } = useQuery({
+        queryKey: ['logs', container.id],
+        queryFn: () => getLogs(logLimit, undefined, container.id || undefined),
         refetchInterval: 5000
     });
 
-    console.log(activeAgents);
 
     return (
         <Dialog>
@@ -73,28 +72,83 @@ export function ContainerEntry({container}: {container: Container}) {
                     <TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
                 </TableRow>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-4/5! max-h-4/5 overflow-scroll">
                 <DialogHeader>
                     <DialogTitle>Container Details</DialogTitle>
-                    <DialogDescription>
-                        <div className="space-y-2">
-                            <div><strong>Name:</strong> {container.name}</div>
-                            <div><strong>Container ID:</strong> {container.id || 'N/A'}</div>
-                            <div><strong>Agent ID:</strong> {container.agent_id}</div>
-                            <div><strong>Image:</strong> {container.image}</div>
-                            <div><strong>Created At:</strong> {new Date((container.created_at || 0) * 1000).toLocaleString()}</div>
-                            <div><strong>Status:</strong> <span className={statusToColorClass(container.status)}>{container.status}</span></div>
-                        </div>
-                        <div>
-                            <Button variant="outline" size="sm" className="mt-4" onClick={() => navigator.clipboard.writeText(container.id || '')}>
-                                Copy Container ID
-                            </Button>
-                        </div>
-                    </DialogDescription>
+                        <DialogDescription>
+                            Detailed information and logs for the selected container.
+                        </DialogDescription>
                 </DialogHeader>
+                <div className="space-y-2">
+                    <div><strong>Name:</strong> {container.name}</div>
+                    <div><strong>Container ID:</strong> {container.id || 'N/A'}</div>
+                    <div><strong>Agent ID:</strong> {container.agent_id}</div>
+                    <div><strong>Image:</strong> {container.image}</div>
+                    <div><strong>Created At:</strong>{ new Date((container.created_at || 0) * 1000).toLocaleString()}</div>
+                    <div><strong>Status:</strong> <span className={statusToColorClass(container.status)}>{container.status}</span></div>
+                </div>
+                {/* Log section */}
+                <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-semibold">Recent Logs</h3>
+                        <div className="flex items-center gap-2">
+                            <span>Log Entries:</span>
+                            <Button variant="outline" size="sm" onClick={() => setLogLimit(50)} className={logLimit === 50 ? 'bg-gray-200' : ''}>50</Button>
+                            <Button variant="outline" size="sm" onClick={() => setLogLimit(100)} className={logLimit === 100 ? 'bg-gray-200' : ''}>100</Button>
+                            <Button variant="outline" size="sm" onClick={() => setLogLimit(200)} className={logLimit === 200 ? 'bg-gray-200' : ''}>200</Button>
+                        </div>
+                    </div>
+                    <div className="outline-1 rounded-xs px-2">
+                        {isLoadingLogs ? <Skeleton className="h-20 " /> : (
+                                <Table className={"overflow-scroll h-full"}>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Timestamp</TableHead>
+                                            <TableHead>Level</TableHead>
+                                            <TableHead>Message</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(logs || []).map((log) => (
+                                            <TableRow key={log.id || `${log.container_id}-${log.timestamp}`}>
+                                                <TableCell className={"w-32"}>{new Date(log.timestamp / 1000000).toLocaleString()}</TableCell>
+                                                <TableCell className={"w-16"}>{log.level}</TableCell>
+                                                <TableCell className={"overflow-scroll max-w-48!"}>{log.message}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                        )}
+                    </div>
+                </div>
             </DialogContent>
         </Dialog>
     )
+}
+
+export function AgentEntry({agent, activeAgents}: {agent: Agent, activeAgents?: ActiveAgent}) {
+    return (
+        <TableRow key={agent.id} className={aliveToColorClass(!!activeAgents && activeAgents[agent.id])}>
+            <TableCell className="font-mono text-xs">{agent.id}</TableCell>
+            <TableCell>{agent.hostname}</TableCell>
+            <TableCell>{agent.heartbeat_interval}</TableCell>
+            <TableCell>{agent.discovery_interval}</TableCell>
+            <TableCell>{agent.on_host ? "true": "false"}</TableCell>
+            <TableCell>
+                {activeAgents && activeAgents[agent.id] ? (
+                    <div className="flex items-center gap-1 text-green-600">
+                        <SignalHigh size={16}/>
+                        Active
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-1 text-red-600">
+                        <SignalLow size={16}/>
+                        Inactive
+                    </div>
+                )}
+            </TableCell>
+        </TableRow>
+    );
 }
 
 function App() {
@@ -142,7 +196,6 @@ function App() {
         queryFn: getActiveAgents,
         refetchInterval: 5000
     });
-
 
 
     return (
@@ -232,7 +285,7 @@ function App() {
                                                     </TableHeader>
                                                     <TableBody>
                                                         {containers.map((container) => (
-                                                            <ContainerEntry key={container.id || container.name} container={container} />
+                                                            <ContainerEntry key={container.id || container.name} container={container} activeAgents={activeAgents} />
                                                         ))}
                                                     </TableBody>
                                                 </Table>
@@ -293,7 +346,7 @@ function App() {
                                     </TableHeader>
                                     <TableBody>
                                         {(orphans || []).map((container) => (
-                                            <ContainerEntry key={container.id || container.name} container={container} />
+                                            <ContainerEntry key={container.id || container.name} container={container} activeAgents={activeAgents} />
                                         ))}
                                     </TableBody>
                                 </Table>
@@ -337,30 +390,9 @@ function App() {
                                     </TableHeader>
                                     <TableBody>
                                         {
-                                            agentsData && Object.values(agentsData).map((agent) => {
-                                                return (
-                                                    <TableRow key={agent.id} className={aliveToColorClass(!!activeAgents && activeAgents[agent.id])}>
-                                                        <TableCell className="font-mono text-xs">{agent.id}</TableCell>
-                                                        <TableCell>{agent.hostname}</TableCell>
-                                                        <TableCell>{agent.heartbeat_interval}</TableCell>
-                                                        <TableCell>{agent.discovery_interval}</TableCell>
-                                                        <TableCell>{agent.on_host ? "true": "false"}</TableCell>
-                                                        <TableCell>
-                                                            {activeAgents && activeAgents[agent.id] ? (
-                                                                <div className="flex items-center gap-1 text-green-600">
-                                                                    <SignalHigh size={16}/>
-                                                                    Active
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex items-center gap-1 text-red-600">
-                                                                    <SignalLow size={16}/>
-                                                                    Inactive
-                                                                </div>
-                                                            )}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })
+                                            agentsData && Object.values(agentsData).map((agent) => (
+                                                <AgentEntry key={agent.id} agent={agent} activeAgents={activeAgents} />
+                                            ))
                                         }
                                     </TableBody>
                                 </Table>
