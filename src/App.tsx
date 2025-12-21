@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {getServices, getOrphans, getUptime, getHealth, getLogs, getAgents} from './api';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {getServices, getOrphans, getUptime, getHealth, getLogs, getAgents, getActiveAgents} from './api';
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,10 +8,26 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CircleQuestionMark} from "lucide-react";
-import type {ServiceContainer} from "@/types.ts";
+import {
+    BluetoothConnected,
+    CircleQuestionMark,
+    Settings,
+    SignalHigh,
+    SignalLow,
+    SignalMedium,
+    SignalZero
+} from "lucide-react";
+import type {Container, ServiceContainer} from "@/types.ts";
 import {Switch} from "@/components/ui/switch.tsx";
 import {Separator} from "@/components/ui/separator.tsx";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
 
 function typeToColorClass(type: string) {
     if (type === 'compose') return 'bg-blue-500';
@@ -31,6 +46,55 @@ function statusToColorClass(status: string) {
     if (status === 'unknown') return 'text-gray-700';
     if (status === 'unhealthy') return 'text-pink-500';
     return 'text-gray-500';
+}
+
+function aliveToColorClass(alive: boolean) {
+    console.log('alive', alive);
+    return alive ? '': 'bg-black/[0.05]';
+}
+
+export function ContainerEntry({container}: {container: Container}) {
+    const { data: activeAgents } = useQuery({
+        queryKey: ['activeAgents'],
+        queryFn: getActiveAgents,
+        refetchInterval: 5000
+    });
+
+    console.log(activeAgents);
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <TableRow key={container.id || container.name} className={aliveToColorClass(!!activeAgents && activeAgents[container.agent_id])}>
+                    <TableCell>{container.name}</TableCell>
+                    <TableCell className="font-mono text-xs">{container.id ? container.id.substring(0, 8) : 'N/A'}</TableCell>
+                    <TableCell className="font-mono text-xs">{container.agent_id.substring(0, 8)}</TableCell>
+                    <TableCell className="font-mono text-xs">{container.image}</TableCell>
+                    <TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
+                </TableRow>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Container Details</DialogTitle>
+                    <DialogDescription>
+                        <div className="space-y-2">
+                            <div><strong>Name:</strong> {container.name}</div>
+                            <div><strong>Container ID:</strong> {container.id || 'N/A'}</div>
+                            <div><strong>Agent ID:</strong> {container.agent_id}</div>
+                            <div><strong>Image:</strong> {container.image}</div>
+                            <div><strong>Created At:</strong> {new Date((container.created_at || 0) * 1000).toLocaleString()}</div>
+                            <div><strong>Status:</strong> <span className={statusToColorClass(container.status)}>{container.status}</span></div>
+                        </div>
+                        <div>
+                            <Button variant="outline" size="sm" className="mt-4" onClick={() => navigator.clipboard.writeText(container.id || '')}>
+                                Copy Container ID
+                            </Button>
+                        </div>
+                    </DialogDescription>
+                </DialogHeader>
+            </DialogContent>
+        </Dialog>
+    )
 }
 
 function App() {
@@ -73,12 +137,12 @@ function App() {
         refetchInterval: 5000
     });
 
-    // Transform uptime data for chart
-    const uptimeData = uptime ? Object.entries(uptime).map(([name, seconds]) => ({
-        name: name.length > 15 ? name.substring(0, 15) + '...' : name,
-        fullName: name,
-        hours: (Number(seconds) / 3600).toFixed(2)
-    })) : [];
+    const { data: activeAgents } = useQuery({
+        queryKey: ['activeAgents'],
+        queryFn: getActiveAgents,
+        refetchInterval: 5000
+    });
+
 
 
     return (
@@ -130,11 +194,11 @@ function App() {
                                 }
                             </div>
                         </div>
-                        <div className="outline-1 rounded-xs px-2">
+                        <div className="outline-1 rounded-xs">
                             {isLoadingServices ? <Skeleton className="h-20 w-full" /> : (
                                 <Accordion type="single" collapsible className="w-full">
                                     {Object.entries(services || {}).map(([serviceName, containers]) => (
-                                        <AccordionItem key={serviceName} value={serviceName}>
+                                        <AccordionItem key={serviceName} value={serviceName} className={"px-2 " + aliveToColorClass(!!activeAgents && activeAgents[containers[0].agent_id])}>
                                             <AccordionTrigger>
                                                 <div className="w-full flex justify-between items-center">
                                                                                             <span className="flex items-center gap-2">
@@ -168,13 +232,7 @@ function App() {
                                                     </TableHeader>
                                                     <TableBody>
                                                         {containers.map((container) => (
-                                                            <TableRow key={container.id || container.name}>
-                                                                <TableCell>{container.name}</TableCell>
-                                                                <TableCell className="font-mono text-xs">{container.id ? container.id.substring(0, 8) : 'N/A'}</TableCell>
-                                                                <TableCell className="font-mono text-xs">{container.agent_id.substring(0, 8)}</TableCell>
-                                                                <TableCell className="font-mono text-xs">{container.image}</TableCell>
-                                                                <TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
-                                                            </TableRow>
+                                                            <ContainerEntry key={container.id || container.name} container={container} />
                                                         ))}
                                                     </TableBody>
                                                 </Table>
@@ -221,7 +279,7 @@ function App() {
                                 }
                             </div>
                         </div>
-                        <div className="outline-1 rounded-xs px-2">
+                        <div className="outline-1 rounded-xs">
                             {isLoadingOrphans ? <Skeleton className="h-20 w-full" /> : (
                                 <Table>
                                     <TableHeader>
@@ -235,13 +293,7 @@ function App() {
                                     </TableHeader>
                                     <TableBody>
                                         {(orphans || []).map((container) => (
-                                            <TableRow key={container.id || container.name}>
-                                                <TableCell>{container.name}</TableCell>
-                                                <TableCell className="font-mono text-xs">{container.id ? container.id.substring(0, 8) : 'N/A'}</TableCell>
-                                                <TableCell className="font-mono text-xs">{container.agent_id.substring(0, 8)}</TableCell>
-                                                <TableCell className="font-mono text-xs">{container.image}</TableCell>
-                                                <TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
-                                            </TableRow>
+                                            <ContainerEntry key={container.id || container.name} container={container} />
                                         ))}
                                     </TableBody>
                                 </Table>
@@ -270,7 +322,7 @@ function App() {
                                 }
                             </div>
                         </div>
-                        <div className="outline-1 rounded-xs px-2">
+                        <div className="outline-1 rounded-xs">
                             {isLoadingAgents ? <Skeleton className="h-20 w-full" /> : (
                                 <Table>
                                     <TableHeader>
@@ -280,18 +332,32 @@ function App() {
                                             <TableHead>Heartbeat Interval (s)</TableHead>
                                             <TableHead>Discovery Interval (s)</TableHead>
                                             <TableHead>On Host</TableHead>
+                                            <TableHead>Active</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {
                                             agentsData && Object.values(agentsData).map((agent) => {
                                                 return (
-                                                    <TableRow key={agent.id}>
+                                                    <TableRow key={agent.id} className={aliveToColorClass(!!activeAgents && activeAgents[agent.id])}>
                                                         <TableCell className="font-mono text-xs">{agent.id}</TableCell>
                                                         <TableCell>{agent.hostname}</TableCell>
                                                         <TableCell>{agent.heartbeat_interval}</TableCell>
                                                         <TableCell>{agent.discovery_interval}</TableCell>
                                                         <TableCell>{agent.on_host ? "true": "false"}</TableCell>
+                                                        <TableCell>
+                                                            {activeAgents && activeAgents[agent.id] ? (
+                                                                <div className="flex items-center gap-1 text-green-600">
+                                                                    <SignalHigh size={16}/>
+                                                                    Active
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1 text-red-600">
+                                                                    <SignalLow size={16}/>
+                                                                    Inactive
+                                                                </div>
+                                                            )}
+                                                        </TableCell>
                                                     </TableRow>
                                                 );
                                             })
@@ -299,7 +365,7 @@ function App() {
                                     </TableBody>
                                 </Table>
                             )}
-                        </div>
+                    </div>
                     </div>
                 </div>
 

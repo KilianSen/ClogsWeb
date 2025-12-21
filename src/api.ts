@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type {Container, ServiceMap, Log, Agent} from './types';
+import type {Container, ServiceMap, Log, Agent, ActiveAgent} from './types';
 
 const API_BASE_URL = '/api'; // Assuming proxy or same origin
 
@@ -35,5 +35,10 @@ export const getUptime = async () => {
 
 export const getAgents = async () => {
     const response = await apiClient.get<{[key:string]: Agent }>('/web/agents');
+    return response.data;
+}
+
+export const getActiveAgents = async () => {
+    const response = await apiClient.get<ActiveAgent>('/processors/active');
     return response.data;
 }

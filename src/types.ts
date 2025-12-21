@@ -6,6 +6,8 @@ export interface Agent {
     on_host: boolean;
 }
 
+export interface ActiveAgent {[key: string]: boolean}
+
 export interface Container {
     id: string | null;
     agent_id: string;
