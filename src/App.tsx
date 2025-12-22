@@ -51,6 +51,7 @@ function App() {
     const [logLimit, setLogLimit] = useState(50);
     const [loggingMode, setLoggingMode] = useState(false)
     const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
+    const [logoError, setLogoError] = useState(false);
 
     const { data: whitelabelConfig } = useQuery({
         queryKey: ['whitelabelConfig'],
@@ -124,11 +125,12 @@ function App() {
             <div className="space-y-8 min-h-screen">
                 <div className="flex items-center justify-center mb-8 relative">
                     <div className="flex flex-col items-center justify-center gap-8">
-                        <img
+                        {!logoError && <img
                             src="/whitelabeling/logo.png"
                             alt="Logo"
                             className={"w-1/2"}
-                        />
+                            onError={() => setLogoError(true)}
+                        />}
                         <h1 className="text-4xl font-bold text-center">{whitelabelConfig?.title || "Clogs Dashboard"}</h1>
                     </div>
 
@@ -400,7 +402,8 @@ function App() {
                 <div className="flex-1 flex justify-end">
                     {/* Darkmode */}
                     {
-                        whitelabelConfig?.enableDarkMode ? (
+                        // Only show dark mode toggle if whitelabelConfig.enableDarkMode is true or if whitelabelConfig is undefined
+                        (whitelabelConfig?.enableDarkMode ?? true) ? (
                             <Button
                                 variant="outline"
                                 size="icon"
@@ -421,3 +424,4 @@ function App() {
 }
 
 export default App;
+
