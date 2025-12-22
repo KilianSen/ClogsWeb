@@ -24,7 +24,7 @@ export interface Uptimes {
 }
 
 export interface Container {
-    running_since?: string;
+    since?: number;
     id: string | null;
     agent_id: string;
     context: number | null;

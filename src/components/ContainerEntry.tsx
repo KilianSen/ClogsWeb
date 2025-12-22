@@ -99,7 +99,6 @@ export function ContainerEntry({container, activeAgents, internal}: {
 						className="font-mono text-xs">{container.id ? container.id.substring(0, 8) : 'N/A'}</TableCell>
 					<TableCell className="font-mono text-xs">{container.agent_id.substring(0, 8)}</TableCell>
 					<TableCell className="font-mono text-xs">{container.image}</TableCell>
-					<TableCell className="font-mono text-xs">{container.running_since}</TableCell>
 					{/* Uptime Chart */}
 					<TableCell>
 						<div className="w-full min-w-36">
@@ -115,6 +114,7 @@ export function ContainerEntry({container, activeAgents, internal}: {
 							</span>
 						)}
 					</TableCell>
+					<TableCell className="font-mono text-xs">{new Date((container.since || 0) * 1000).toLocaleString()}</TableCell>
 					<TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
 				</TableRow>
 			</DialogTrigger>

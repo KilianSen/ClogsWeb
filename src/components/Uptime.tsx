@@ -91,7 +91,8 @@ export default function Uptime({ container, maxSectionTime, historyTime }: { con
 						else if (key === 'removing') fillColor = '#a78bfa'; // Purple
 						else if (key === 'unknown') fillColor = '#9ca3af'; // Gray
 						else if (key === 'unhealthy') fillColor = '#ec4899'; // Pink
-						return <Bar key={key} dataKey={key} stackId="a" fill={fillColor} />;
+						return <Bar key={key} dataKey={key} stackId="a" fill={fillColor}
+						            radius={[6, 6, 6, 6]}/>;
 					})}
 					<RCTooltip content={UptimeTooltip} />
 				</BarChart>

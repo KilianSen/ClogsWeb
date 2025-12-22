@@ -9,13 +9,43 @@ import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 import {Button} from "@/components/ui/button";
 import {ScrollArea} from "@/components/ui/scroll-area";
 import {CircleQuestionMark, GithubIcon, Link, Moon, Sun,} from "lucide-react";
-import type {ServiceContainer, WhitelabelConfig} from "@/types.ts";
+import type {Container, ServiceContainer, WhitelabelConfig} from "@/types.ts";
 import {Switch} from "@/components/ui/switch.tsx";
 import {Separator} from "@/components/ui/separator.tsx";
 import {aliveToColorClass, typeToColorClass} from "@/lib/color.ts";
 import {ContainerEntry} from "@/components/ContainerEntry.tsx";
 import {AgentEntry} from "@/components/AgentEntry.tsx";
 
+
+function ContainerTable({containers}: { containers: Container[] }) {
+    const { data: activeAgents } = useQuery({
+        queryKey: ['activeAgents'],
+        queryFn: getActiveAgents,
+        refetchInterval: 5000
+    });
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Container ID</TableHead>
+                    <TableHead>Agent ID</TableHead>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Uptime</TableHead>
+                    <TableHead>Uptime Percent</TableHead>
+                    <TableHead>Since</TableHead>
+                    <TableHead>Status</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {containers.map((container) => (
+                    <ContainerEntry key={container.id || container.name} container={container} activeAgents={activeAgents} internal={true} />
+                ))}
+            </TableBody>
+        </Table>
+    )
+}
 
 function App() {
     const [logLimit, setLogLimit] = useState(50);
@@ -172,23 +202,7 @@ function App() {
                                                 </div>
                                             </AccordionTrigger>
                                             <AccordionContent>
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>Name</TableHead>
-                                                            <TableHead>Container ID</TableHead>
-                                                            <TableHead>Agent ID</TableHead>
-                                                            <TableHead>Image</TableHead>
-                                                            <TableHead>Status</TableHead>
-                                                            <TableHead>Uptime</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {containers.map((container) => (
-                                                            <ContainerEntry key={container.id || container.name} container={container} activeAgents={activeAgents} internal={true} />
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
+                                                <ContainerTable containers={containers} />
                                             </AccordionContent>
                                         </AccordionItem>
                                     ))}
@@ -234,22 +248,7 @@ function App() {
                         </div>
                         <div className="outline-1 rounded-xs">
                             {isLoadingOrphans ? <Skeleton className="h-20 w-full" /> : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Name</TableHead>
-                                            <TableHead>Container ID</TableHead>
-                                            <TableHead>Agent ID</TableHead>
-                                            <TableHead>Image</TableHead>
-                                            <TableHead>Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(orphans || []).map((container) => (
-                                            <ContainerEntry key={container.id || container.name} container={container} activeAgents={activeAgents} />
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                <ContainerTable containers={orphans || []}  />
                             )}
                         </div>
                     </div>
