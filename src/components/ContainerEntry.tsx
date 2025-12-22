@@ -1,5 +1,5 @@
 import type {ActiveAgent, Container} from "@/types.ts";
-import {useState} from "react";
+import {cloneElement, useState} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {getLogs, getUptime} from "@/api.ts";
 import {
@@ -15,14 +15,61 @@ import {aliveToColorClass, statusToColorClass} from "@/lib/color.ts";
 import Uptime from "@/components/Uptime.tsx";
 import {Button} from "@/components/ui/button.tsx";
 import {Skeleton} from "@/components/ui/skeleton.tsx";
+import {Box, FileQuestion, HeartCrack, Pause, Play, RefreshCw, Skull, Square, Trash2} from "lucide-react";
+import {Tooltip, TooltipTrigger, TooltipContent} from "@/components/ui/tooltip.tsx";
+
+function StatusSymbol({status}: { status: string }) {
+	let element = <FileQuestion/>;
+	switch (status) {
+		case 'running':
+			element = <Play/>
+			break;
+		case 'paused':
+			element = <Pause/>
+			break;
+		case 'exited':
+			element = <Square/>
+			break;
+		case 'dead':
+			element = <Skull/>
+			break;
+		case 'removing':
+			element = <Trash2/>
+			break;
+		case 'unhealthy':
+			element = <HeartCrack/>
+			break;
+		case 'restarting':
+			element = <RefreshCw/>
+			break;
+		case 'created':
+			element = <Box/>
+			break;
+		default:
+			element = <FileQuestion/>
+	}
+
+	return (
+		<span className={statusToColorClass(status)}>
+			<Tooltip>
+				<TooltipTrigger>
+					{cloneElement(element, {fill: 'currentColor', size: 16})}
+				</TooltipTrigger>
+				<TooltipContent>
+					{status.charAt(0).toUpperCase() + status.slice(1)}
+				</TooltipContent>
+			</Tooltip>
+		</span>
+	)
+}
 
 function ContainerDialog({container}: { container: Container }) {
 	const [logLimit, setLogLimit] = useState(50);
 	const {data: logs, isLoading: isLoadingLogs} = useQuery({
-	queryKey: ['logs', container.id],
-	queryFn: () => getLogs(logLimit, undefined, container.id || undefined),
-	refetchInterval: 5000
-});
+		queryKey: ['logs', container.id],
+		queryFn: () => getLogs(logLimit, undefined, container.id || undefined),
+		refetchInterval: 5000
+	});
 
 	return (
 		<div className="p-4">
@@ -37,7 +84,7 @@ function ContainerDialog({container}: { container: Container }) {
 					className={statusToColorClass(container.status)}>{container.status}</span></div>
 			</div>
 			<div className="w-full">
-				<Uptime container={container} />
+				<Uptime container={container}/>
 			</div>
 			<div className="flex items-center justify-between mb-2">
 				<h3 className="text-lg font-semibold">Recent Logs</h3>
@@ -77,6 +124,7 @@ function ContainerDialog({container}: { container: Container }) {
 		</div>
 	)
 }
+
 export function ContainerEntry({container, activeAgents, internal}: {
 	container: Container,
 	activeAgents?: ActiveAgent,
@@ -114,8 +162,9 @@ export function ContainerEntry({container, activeAgents, internal}: {
 							</span>
 						)}
 					</TableCell>
-					<TableCell className="font-mono text-xs">{new Date((container.since || 0) * 1000).toLocaleString()}</TableCell>
-					<TableCell className={statusToColorClass(container.status)}>{container.status}</TableCell>
+					<TableCell
+						className="font-mono text-xs">{new Date((container.since || 0) * 1000).toLocaleString()}</TableCell>
+					<TableCell className={statusToColorClass(container.status)}><StatusSymbol status={container.status}/></TableCell>
 				</TableRow>
 			</DialogTrigger>
 			<DialogContent className="max-w-4/5! max-h-4/5 overflow-scroll">

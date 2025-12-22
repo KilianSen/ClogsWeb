@@ -31,7 +31,7 @@ export default function Uptime({ container, maxSectionTime, historyTime }: { con
 	const { data: uptimeSections, isLoading: isLoadingUptimeSections} = useQuery({
 		queryKey: ['uptimeSections', container.id],
 		queryFn: () => getUptimeSections(container.id || undefined),
-		refetchInterval: 5000
+		refetchInterval: 3000
 	});
 	const [currentTime, setCurrentTime] = useState(0);
 
