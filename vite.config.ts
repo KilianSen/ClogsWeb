@@ -14,7 +14,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000', // Adjust port if your backend runs elsewhere
+        target: process.env.CLOGS_BACKEND_URL || 'http://localhost:8000', // Adjust port if your backend runs elsewhere
         changeOrigin: true,
       }
     }
