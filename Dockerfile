@@ -8,18 +8,4 @@ RUN npm ci
 
 COPY . .
 
-RUN npm run build
-
-# Stage 2: Serve the application with Nginx
-FROM nginx:alpine
-
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Allow mounting whitelabeling configuration
-VOLUME ["/usr/share/nginx/html/whitelabeling"]
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-
+ENTRYPOINT ["npm", "run", "dev", "--", "--host"]
