@@ -3,6 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="stylesheet" href="/whitelabeling/style.css" />
+    <script>
+      (function() {
+        const faviconPath = '/whitelabeling/favicon.ico';
+        const img = new Image();
+        img.onload = function() {
+          const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+          link.type = 'image/x-icon';
+          link.rel = 'shortcut icon';
+          link.href = faviconPath;
+          document.getElementsByTagName('head')[0].appendChild(link);
+        };
+        img.src = faviconPath;
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>clogs-web</title>
   </head>

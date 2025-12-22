@@ -8,7 +8,23 @@ export interface Agent {
 
 export interface ActiveAgent {[key: string]: boolean}
 
+export interface UptimeSection {
+    id: string | null;
+    container_id: string;
+    start_time: number;
+    end_time: number | null;
+    state: string;
+}
+export interface Uptimes {
+    [containerId: string]: {
+        uptime_seconds: number;
+        uptime_percentage: number;
+        first_recorded: number;
+    }
+}
+
 export interface Container {
+    running_since?: string;
     id: string | null;
     agent_id: string;
     context: number | null;
@@ -47,4 +63,13 @@ export interface Log {
 export interface Heartbeat {
     agent_id: string;
     timestamp: number;
+}
+
+export interface WhitelabelConfig {
+    footerLinkLogo?: string;
+    title?: string;
+    footerText?: string;
+    footerLink?: string;
+    documentTitle?: string;
+    enableDarkMode?: boolean;
 }
