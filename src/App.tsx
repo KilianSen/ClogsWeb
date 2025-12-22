@@ -364,7 +364,7 @@ function App() {
             {/* Footer */}
             <Separator orientation="horizontal" className={"my-6"}/>
             <div className="flex items-center">
-                <div className="flex-1 flex justify-start">
+                <div className="flex-1 flex justify-start gap-2">
                     {
                         whitelabelConfig?.footerLink ? (
                             <a href={whitelabelConfig.footerLink} target="_blank" rel="noopener noreferrer">
