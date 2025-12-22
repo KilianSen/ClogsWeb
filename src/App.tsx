@@ -191,6 +191,7 @@ function App() {
                                                         {
                                                             // If any containers are either 'unhealthy' or 'exited' or 'dead' or 'unknown', show a red badge with the count of such containers
                                                             (() => {
+                                                                console.log(containers);
                                                                 const problemContainers = (containers || []).filter(c => ['debug', 'unhealthy', 'exited', 'dead', 'unknown'].includes(c.status));
                                                                 if (problemContainers.length > 0) {
                                                                     return <Badge variant="destructive">{problemContainers.length} issue{problemContainers.length > 1 ? 's' : ''}</Badge>;
