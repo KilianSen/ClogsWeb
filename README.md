@@ -10,3 +10,8 @@ See Clogs Deployment Documentation for more information on deploying Clogs Web.
 
 __Note:__ Clogs Web is deployable as a standalone container or can be integrated into an existing Clogs deployment.
 Still we recommend deploying Clogs Web as part of Clogs Server for the best experience.
+
+## Licensing
+- [LICENSE](LICENSE) - AGPL-3.0 (community edition)
+- [Commercial](LICENSE-COMMERCIAL.md) - Enterprise/SaaS licensing
+- [CLA](CLA.md) - Required for contributions
