@@ -386,7 +386,7 @@ function App() {
                             </a>
                         ) : <></>
                     }
-                    <a href="/">
+                    <a href="http://github.com/kiliansen/clogs" target="_blank" rel="noopener noreferrer">
                         <Button
                             variant="outline"
                             size="icon"
