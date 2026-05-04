@@ -349,7 +349,7 @@ function App() {
                                     <TableBody>
                                         {(logs || []).map((log) => (
                                             <TableRow key={log.id || `${log.container_id}-${log.timestamp}`}>
-                                                <TableCell>{new Date(log.timestamp * 1000).toLocaleString()}</TableCell>
+                                                <TableCell>{new Date(log.timestamp / 1000000).toLocaleString()}</TableCell>
                                                 <TableCell className="font-mono text-xs">{log.container_id.substring(0, 8)}</TableCell>
                                                 <TableCell>{log.level}</TableCell>
                                                 <TableCell>{log.message}</TableCell>
